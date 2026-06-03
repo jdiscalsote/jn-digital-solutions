@@ -9,6 +9,7 @@ import About from "./components/About";
 import Testimonials from "./components/Testimonials";
 import Contact from "./components/Contact";
 import Footer from "./components/Footer";
+import AIChatbot from "./components/AIChatbot";
 
 export default function App() {
   // Light color scheme by default
@@ -45,6 +46,7 @@ export default function App() {
         <Contact />
       </main>
       <Footer />
+      <AIChatbot />
     </div>
   );
 }

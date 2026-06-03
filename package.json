@@ -5,8 +5,9 @@
   "type": "module",
   "homepage": "https://jdiscalsote.github.io/jn-digital-solutions/",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "tsc && vite build",
+    "dev": "tsx server.ts",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "start": "node dist/server.cjs",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "preview": "vite preview",
