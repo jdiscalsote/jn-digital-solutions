@@ -68,7 +68,7 @@ async function startServer() {
             query.includes("about you")
         ) {
             return `### Meet our Founder & Chief Engineer 👨‍💻
-Our founder, architect, and lead engineer is **NJ (Noly)**, a Senior Full-Stack Software Developer & Systems Analyst with **over 7+ years of professional experience** in digital engineering.
+Our founder, architect, and lead engineer is **JND**, a Senior Full-Stack Software Developer & Systems Analyst with **over 5+ years of professional experience** in digital engineering.
 
 He specializes in building secure, high-concurrency systems and custom corporate architectures.
 
@@ -309,7 +309,7 @@ Here is the exact layout of JN Digital Solutions:
    - Deliverables: Tarpaulin printing, premium double-sided business cards, flyers, posters, and uniform company styles.
 
 Founder Background & Technologies:
-- NJ (Noly) has worked with premier entities like New San Jose Builders Inc., Accenture, Federal Land Inc., and HRD Singapore.
+- JND has worked with premier entities like New San Jose Builders Inc., Accenture, Federal Land Inc., and HRD Singapore.
 - Systems built: Centralized Procurement Platforms with approval chain workflows, Cloud reservation dashboards, AI face shift trackers, Blazor support hubs, etc.
 - Primary Stack: C# / ASP.NET Core, SQL Server, REST API gateways, Blazor/MudBlazor, Flutter, React, and Tailwind CSS.
 

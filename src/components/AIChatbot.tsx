@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, X, Send, Sparkles, Loader2, ArrowRight, User, HelpCircle, Briefcase } from "lucide-react";
+import { MessageSquare, X, Send, Sparkles, Loader2, ArrowRight, User, HelpCircle, Briefcase, RotateCcw, Smile } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface Message {
@@ -21,11 +21,14 @@ export default function AIChatbot() {
     ]);
     const [inputMessage, setInputMessage] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [leadStep, setLeadStep] = useState<"none" | "asking-name" | "asking-email" | "confirming">("none");
+    const [leadData, setLeadData] = useState({ name: "", email: "" });
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatBubbleRef = useRef<HTMLButtonElement>(null);
 
     // Suggestion chips for rapid, interactive user actions
     const suggestionChips = [
+        { text: "📋 Request a custom quote", label: "Request Quote" },
         { text: "💼 What services do you offer?", label: "Services" },
         { text: "🖥️ Tell me about your Web App Dev", label: "Web Apps" },
         { text: "🧾 What features are in your POS?", label: "POS Solutions" },
@@ -39,6 +42,20 @@ export default function AIChatbot() {
             messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
     }, [messages, isLoading]);
+
+    const handleResetChat = () => {
+        setMessages([
+            {
+                id: "welcome",
+                role: "model",
+                content: "Hello! I am JN Digital Solutions' AI Assistant. 🌟\n\nHow can I help you today? I can provide detailed guidance on our **Website development**, custom **Enterprise SaaS programs**, high-speed **POS installations**, and **Graphic Design or Printing services**!",
+                timestamp: new Date()
+            }
+        ]);
+        setLeadStep("none");
+        setLeadData({ name: "", email: "" });
+        setIsLoading(false);
+    };
 
     const handleSendMessage = async (customText?: string) => {
         const textToSend = customText ? customText.trim() : inputMessage.trim();
@@ -56,6 +73,104 @@ export default function AIChatbot() {
         };
 
         setMessages((prev) => [...prev, newUserMessage]);
+
+        // Check for greetings or quote requests
+        const normalizedText = textToSend.toLowerCase().trim();
+        const isGreeting = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "howdy", "hola"].some(
+            (greet) => normalizedText === greet || normalizedText.startsWith(greet + " ")
+        );
+        const isRequestQuote = normalizedText.includes("quote") || normalizedText.includes("request a custom quote") || normalizedText.includes("request quote") || normalizedText.includes("contact");
+
+        // Guided Onboarding states:
+        if (leadStep === "none" && (isGreeting || isRequestQuote)) {
+            setIsLoading(true);
+            setTimeout(() => {
+                let content = "";
+                if (isGreeting) {
+                    content = "Hello there! 👋 Welcome to JN Digital Solutions.\n\nI am your interactive System Consultant. To help you design or find the perfect system, may I ask for your **full name** first so we can address you professionally?";
+                } else {
+                    content = "I'd be absolutely thrilled to assist with a customized quotation for your digital project! 🚀\n\nTo begin drafting your tailored estimate, may I please ask for your **full name**?";
+                }
+
+                const newAIMessage: Message = {
+                    id: Math.random().toString(),
+                    role: "model",
+                    content,
+                    timestamp: new Date()
+                };
+                setMessages((prev) => [...prev, newAIMessage]);
+                setLeadStep("asking-name");
+                setIsLoading(false);
+            }, 600);
+            return;
+        }
+
+        if (leadStep === "asking-name") {
+            setIsLoading(true);
+            setTimeout(() => {
+                setLeadData((prev) => ({ ...prev, name: textToSend }));
+                setLeadStep("asking-email");
+
+                const newAIMessage: Message = {
+                    id: Math.random().toString(),
+                    role: "model",
+                    content: `Perfect! Wonderful to meet you, **${textToSend}**! 🤝\n\nNext, what is your **best business email address**? We'll use this to safely forward you updates or customized proposals.`,
+                    timestamp: new Date()
+                };
+                setMessages((prev) => [...prev, newAIMessage]);
+                setIsLoading(false);
+            }, 600);
+            return;
+        }
+
+        if (leadStep === "asking-email") {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            setIsLoading(true);
+            setTimeout(() => {
+                if (!emailRegex.test(textToSend)) {
+                    const newAIMessage: Message = {
+                        id: Math.random().toString(),
+                        role: "model",
+                        content: "Whoops! That doesn't quite look like a valid email. Please share a valid email format (e.g., name@company.com) so we can stay in touch correctly!",
+                        timestamp: new Date()
+                    };
+                    setMessages((prev) => [...prev, newAIMessage]);
+                    setIsLoading(false);
+                    return;
+                }
+
+                setLeadData((prev) => ({ ...prev, email: textToSend }));
+                setLeadStep("confirming");
+
+                const newAIMessage: Message = {
+                    id: Math.random().toString(),
+                    role: "model",
+                    content: `Excellent! Thank you, **${leadData.name || "friend"}**. I've successfully registered your details:\n\n*   **Client Name**: **${leadData.name || "Valued Guest"}**\n*   **Email Address**: **${textToSend}**\n\nNow, could you briefly describe what specific system, website, or printing needs you have? (Or just type **'Done'** to finalize!)`,
+                    timestamp: new Date()
+                };
+                setMessages((prev) => [...prev, newAIMessage]);
+                setIsLoading(false);
+            }, 700);
+            return;
+        }
+
+        if (leadStep === "confirming") {
+            setIsLoading(true);
+            setTimeout(() => {
+                setLeadStep("none");
+
+                const newAIMessage: Message = {
+                    id: Math.random().toString(),
+                    role: "model",
+                    content: `Outstanding! Your inquiry has been logged successfully under our primary contact files. 🌟\n\nOur founder **JND** or one of our tech representatives will review your description and reach out to you at **${leadData.email}** within 24 hours.\n\nType anything else if you want to explore more about our services, or click the **Reset** icon in the top header to start a new chat!`,
+                    timestamp: new Date()
+                };
+                setMessages((prev) => [...prev, newAIMessage]);
+                setIsLoading(false);
+            }, 850);
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -228,13 +343,23 @@ export default function AIChatbot() {
                                     </div>
                                 </div>
                             </div>
-                            <button
-                                id="close-ai-chat"
-                                onClick={() => setIsOpen(false)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
+                            <div className="flex items-center space-x-1.5">
+                                <button
+                                    id="reset-ai-chat"
+                                    onClick={handleResetChat}
+                                    title="Reset and clear chat"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                                >
+                                    <RotateCcw className="h-4 w-4" />
+                                </button>
+                                <button
+                                    id="close-ai-chat"
+                                    onClick={() => setIsOpen(false)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Chat Messages Log */}
