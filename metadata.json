@@ -1,0 +1,6 @@
+{
+  "name": "JN Digital Solutions",
+  "description": "Modern digital solutions agency website offering website development, mobile application development, enterprise systems, and printing services.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
