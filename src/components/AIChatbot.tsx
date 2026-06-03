@@ -64,7 +64,7 @@ export default function AIChatbot() {
                 content: msg.content
             }));
 
-            const res = await fetch("/api/chat", {
+            const res = await fetch("https://jn-digital-solutions.onrender.com/api/chat", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -253,8 +253,8 @@ export default function AIChatbot() {
                                         )}
                                         <div
                                             className={`rounded-2xl px-4 py-3 text-xs sm:text-sm ${msg.role === "user"
-                                                    ? "bg-blue-600 text-white rounded-br-none shadow-md shadow-blue-600/15 font-medium"
-                                                    : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800/80 rounded-bl-none shadow-sm shadow-slate-200/5 dark:shadow-none"
+                                                ? "bg-blue-600 text-white rounded-br-none shadow-md shadow-blue-600/15 font-medium"
+                                                : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800/80 rounded-bl-none shadow-sm shadow-slate-200/5 dark:shadow-none"
                                                 }`}
                                         >
                                             {msg.role === "user" ? (
