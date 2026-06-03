@@ -3,12 +3,32 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import cors from "cors";
 
 dotenv.config();
 
 async function startServer() {
     const app = express();
     const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+    const allowedOrigins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://jdiscalsote.github.io"
+    ];
+
+    app.use(cors({
+        origin: function (origin, callback) {
+            if (!origin) return callback(null, true); // mobile/postman
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+            return callback(new Error("Not allowed by CORS"));
+        },
+        methods: ["GET", "POST", "OPTIONS"],
+        allowedHeaders: ["Content-Type"]
+    }));
+    app.options("*", cors());
 
     app.use(express.json());
 
