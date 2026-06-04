@@ -18,6 +18,7 @@ export default function Navbar({ isDarkMode, toggleDarkMode }: NavbarProps) {
     { label: "Portfolio", target: "portfolio" },
     { label: "Experience", target: "experience" },
     { label: "About", target: "about" },
+    { label: "FAQ", target: "faq" },
     { label: "Contact", target: "contact" },
   ];
 

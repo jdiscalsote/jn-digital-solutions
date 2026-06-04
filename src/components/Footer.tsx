@@ -32,7 +32,7 @@ export default function Footer() {
     <footer className="bg-slate-900 border-t border-slate-800 text-slate-400 font-sans block">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10 items-start">
-          
+
           {/* Logo & Bio area */}
           <div className="md:col-span-5 space-y-4">
             <div className="flex items-center space-x-2.5 cursor-pointer" onClick={() => handleScrollTo("home")}>
@@ -101,15 +101,17 @@ export default function Footer() {
 
         {/* Separator / Copyright area */}
         <div className="border-t border-slate-800/85 mt-12 pt-8 flex flex-col sm:flex-row justify-between items-center text-[11px] text-slate-500 font-medium">
-          <p>© 2026 JN Digital Solutions. All Rights Reserved.</p>
-          <button
-            id="back-to-top-btn"
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="mt-4 sm:mt-0 flex items-center space-x-1 hover:text-white transition-colors cursor-pointer"
-          >
-            <span>Back to top</span>
-            <ArrowUp className="h-3.5 w-3.5" />
-          </button>
+          <p className="order-2 sm:order-1 mt-4 sm:mt-0 text-center sm:text-left">© 2026 JN Digital Solutions. All Rights Reserved.</p>
+          <div className="order-1 sm:order-2 sm:absolute sm:left-1/2 sm:-translate-x-1/2 flex justify-center">
+            <button
+              id="back-to-top-btn"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              className="flex items-center space-x-1.5 bg-slate-800/90 hover:bg-blue-600 text-slate-300 hover:text-white px-4 py-2 rounded-full border border-slate-700/60 hover:border-blue-500/30 transition-all duration-300 cursor-pointer shadow-sm text-xs"
+            >
+              <span>Back to top</span>
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </footer>

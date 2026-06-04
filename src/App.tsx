@@ -7,6 +7,7 @@ import Portfolio from "./components/Portfolio";
 import Experience from "./components/Experience";
 import About from "./components/About";
 import Testimonials from "./components/Testimonials";
+import FAQ from "./components/FAQ";
 import Contact from "./components/Contact";
 import Footer from "./components/Footer";
 import AIChatbot from "./components/AIChatbot";
@@ -43,6 +44,7 @@ export default function App() {
         <Experience />
         <About />
         <Testimonials />
+        <FAQ />
         <Contact />
       </main>
       <Footer />

@@ -41,3 +41,10 @@ export interface ContactSubmission {
   serviceInterested: string;
   message: string;
 }
+
+export interface FaqItem {
+  id: string;
+  question: string;
+  answer: string;
+  category: "general" | "services" | "technical" | "contracts";
+}

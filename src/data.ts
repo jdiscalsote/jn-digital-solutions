@@ -1,4 +1,4 @@
-import { ServiceItem, ProjectItem, ExperienceItem, TestimonialItem } from "./types";
+import { ServiceItem, ProjectItem, ExperienceItem, TestimonialItem, FaqItem } from "./types";
 
 export const SERVICES: ServiceItem[] = [
   {
@@ -211,5 +211,44 @@ export const WHY_CHOOSE_ME = [
     title: "Enterprise Experience",
     description: "Extensive background building system integrations for major developers, multi-national agencies, and corporate clients.",
     icon: "Briefcase"
+  }
+];
+
+export const FAQS: FaqItem[] = [
+  {
+    id: "faq-software-types",
+    question: "What types of custom software can JN Digital Solutions build?",
+    answer: "We specialize in end-to-end custom software including Enterprise HR suites, Procurement portals, modern Point of Sale (POS) tools with barcode/receipt printer integration, inventory ledgers, responsive corporate web ecosystems, and multi-platform mobile applications (iOS & Android).",
+    category: "services"
+  },
+  {
+    id: "faq-tech-stacks",
+    question: "What tech stacks do you recommend and commonly build with?",
+    answer: "For heavy-duty corporate platforms, we highly recommend ASP.NET Core paired with robust SQL Server databases for extreme type-safety & security. For interactive client interfaces, we use React (Vite) and Tailwind CSS. For mobile applications, we leverage Google's cross-platform Flutter framework.",
+    category: "technical"
+  },
+  {
+    id: "faq-timeframes",
+    question: "How long does a typical custom software project take?",
+    answer: "Project timelines depend heavily on feature scope complexity. A high-converting professional web landing page takes about 2 weeks. Comprehensive custom systems or operational dashboards (ERP, HR, inventory suites) typically scale between 4 to 8 weeks, organized into clean itemized milestones.",
+    category: "contracts"
+  },
+  {
+    id: "faq-support-service",
+    question: "Do you offer support and maintenance after deployment?",
+    answer: "Yes, absolutely. Every system built by JN Digital include standard SLA-guaranteed post-launch monitoring, routine security patches, and database optimization updates. We ensure that your business suffers zero operational downtime.",
+    category: "general"
+  },
+  {
+    id: "faq-data-migration",
+    question: "Can I import existing Excel files or database tables into a new system?",
+    answer: "Yes. We build automated uploaders and data processors to safely migrate your legacy spreadsheets, historical accounts, or customer list records into the new secure cloud SQL database, running audit procedures to prevent data duplication.",
+    category: "technical"
+  },
+  {
+    id: "faq-request-process",
+    question: "What is the process for requesting an estimation and starting a project?",
+    answer: "First, submit your system context using our standard form or consult our interactive AI Pilot Consultant. We will evaluate your parameters, draft a professional Technical Specification RFP blueprint, and schedule a consult review. Once milestones are locked, we proceed to interactive wireframes.",
+    category: "general"
   }
 ];
