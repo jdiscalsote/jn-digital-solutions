@@ -11,6 +11,11 @@ async function startServer() {
     const app = express();
     const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+    console.log(
+        "Gemini Key Found:",
+        !!process.env.GEMINI_API_KEY
+    );
+
     const allowedOrigins = [
         "http://localhost:3000",
         "http://localhost:5173",
@@ -28,16 +33,22 @@ async function startServer() {
         methods: ["GET", "POST", "OPTIONS"],
         allowedHeaders: ["Content-Type"]
     }));
-    app.options("*", cors());
+    app.options("*", cors({
+        origin: allowedOrigins
+    }));
 
     app.use(express.json());
 
     // Helper to dynamically check if the Gemini API Key is configured and valid
+    let isApiKeyExpiredOrInvalid = false;
+
     function getAiActiveKey(): string | undefined {
-        const key = process.env.GEMINI_API_KEY?.trim();
-        if (!key || key === "undefined" || key === "null" || key === "" || key.startsWith("YOUR_") || key.includes("placeholder")) {
+        if (isApiKeyExpiredOrInvalid) {
             return undefined;
         }
+
+        const key = process.env.GEMINI_API_KEY?.trim();
+        if (!key || key.trim().length < 10) return undefined;
         return key;
     }
 
@@ -45,34 +56,29 @@ async function startServer() {
     let ai: GoogleGenAI | null = null;
 
     function getAiClient(): GoogleGenAI | null {
-        const activeKey = getAiActiveKey();
-        if (!activeKey) return null;
+        const key = getAiActiveKey();
+        if (!key) return null;
+
         if (!ai) {
-            if (activeKey.startsWith("AQ.")) {
-                console.log("On-demand init: AQ prefixed OAuth token recognized.");
-                ai = new GoogleGenAI({
-                    apiKey: "OAUTH_REST_FALLBACK_MODE",
-                    httpOptions: {
-                        headers: { 'User-Agent': 'aistudio-build' },
-                    },
-                });
-            }
-        } else {
-            console.log("On-demand init: Native API Key recognized.");
             ai = new GoogleGenAI({
-                apiKey: activeKey,
+                apiKey: key,
                 httpOptions: {
-                    headers: { 'User-Agent': 'aistudio-build' },
-                },
+                    headers: {
+                        "User-Agent": "aistudio-build"
+                    }
+                }
             });
+
+            console.log("[AI] Initialized with API Key");
         }
+
         return ai;
     }
 
     // Dry run check
     if (getAiActiveKey()) {
         getAiClient();
-        console.log("JN AI Assistant initialized successfully with a defined GEMINI_API_KEY.");
+        console.log(`[AI] Initialized. Key present: ${!!getAiActiveKey()}`);
     } else {
         console.log("GEMINI_API_KEY is not defined or is blank, or is a placeholder/invalid token. Utilizing rich local fallback expert assistant.");
     }
@@ -311,80 +317,92 @@ To best assist you, let me know which area you would like to explore:
         };
     }) {
         const activeApiKey = getAiActiveKey();
+
         if (!activeApiKey) {
-            throw new Error("Local engine fallback active (No active key).");
+            throw new Error("No active GEMINI_API_KEY found.");
+        }
+
+        // Ensure AI client exists (SDK mode fallback)
+        if (!ai) {
+            ai = new GoogleGenAI({
+                apiKey: activeApiKey,
+                httpOptions: {
+                    headers: {
+                        "User-Agent": "aistudio-build"
+                    }
+                }
+            });
         }
 
         try {
-            if (activeApiKey.startsWith("AQ.")) {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${params.model}:generateContent`;
-                const headers: Record<string, string> = {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${activeApiKey}`,
-                    'User-Agent': 'aistudio-build'
-                };
+            // Convert contents into Gemini format if needed
+            let formattedContents = params.contents;
 
-                // Map contents to REST API structured array
-                let formattedContents = params.contents;
-                if (typeof formattedContents === "string") {
-                    formattedContents = [{ role: 'user', parts: [{ text: formattedContents }] }];
-                } else if (Array.isArray(formattedContents)) {
-                    formattedContents = formattedContents.map(turn => {
-                        if (turn && turn.parts) {
-                            return turn;
-                        }
-                        if (turn && turn.content) {
-                            return {
-                                role: turn.role === "user" ? "user" : "model",
-                                parts: [{ text: turn.content }]
-                            };
-                        }
-                        return turn;
-                    });
-                }
+            if (typeof formattedContents === "string") {
+                formattedContents = [
+                    {
+                        role: "user",
+                        parts: [{ text: formattedContents }]
+                    }
+                ];
+            } else if (Array.isArray(formattedContents)) {
+                formattedContents = formattedContents.map((turn: any) => {
+                    if (turn?.parts) return turn;
 
-                const requestBody: any = {
-                    contents: formattedContents,
-                };
-
-                if (params.config) {
-                    requestBody.generationConfig = {
-                        temperature: params.config.temperature,
-                        responseMimeType: params.config.responseMimeType,
-                        responseSchema: params.config.responseSchema,
-                    };
-                    if (params.config.systemInstruction) {
-                        requestBody.systemInstruction = {
-                            parts: [{ text: params.config.systemInstruction }]
+                    if (turn?.content) {
+                        return {
+                            role: turn.role === "user" ? "user" : "model",
+                            parts: [{ text: turn.content }]
                         };
                     }
-                }
 
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify(requestBody)
+                    return turn;
                 });
+            }
 
-                if (!res.ok) {
-                    const errorText = await res.text();
-                    throw new Error(`Direct API response rejected: ${res.status}`);
+            // Build request payload
+            const requestBody: any = {
+                contents: formattedContents
+            };
+
+            if (params.config) {
+                requestBody.generationConfig = {
+                    temperature: params.config.temperature,
+                    responseMimeType: params.config.responseMimeType,
+                    responseSchema: params.config.responseSchema
+                };
+
+                if (params.config.systemInstruction) {
+                    requestBody.systemInstruction = {
+                        parts: [{ text: params.config.systemInstruction }]
+                    };
                 }
-
-                const data = await res.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                return { text };
             }
 
-            // Otherwise, use standard SDK client
-            if (!ai) {
-                throw new Error("AI client is offline.");
-            }
+            // Use correct SDK call (NO manual OAuth handling, NO AQ logic)
+            const result = await ai.models.generateContent({
+                model: params.model,
+                contents: formattedContents,
+                config: requestBody.generationConfig
+                    ? {
+                        temperature: requestBody.generationConfig.temperature,
+                        responseMimeType: requestBody.generationConfig.responseMimeType,
+                        responseSchema: requestBody.generationConfig.responseSchema,
+                        systemInstruction: params.config?.systemInstruction
+                    }
+                    : undefined
+            });
 
-            return await ai.models.generateContent(params);
+            return result;
 
         } catch (err: any) {
-            throw new Error("Local engine fallback active.");
+            console.error("❌ Gemini API Error:");
+            console.error("Message:", err?.message);
+            console.error("Status:", err?.status);
+            console.error("Full Error:", err);
+
+            // Do NOT silently hide real errors anymore
+            throw err;
         }
     }
 
@@ -410,7 +428,7 @@ To best assist you, let me know which area you would like to explore:
                 technicalSpecsDraft: `### Technical Specification Proposal\n\n**Prepared for**: Valued Client  \n**Recommended Engine Architecture**: ASP.NET Core & React (Vite)  \n**Description Analyzed**: "${description}"  \n\n#### Suggested Milestones:\n1. **Milestone 1**: UI/UX Wireframes & Database Schema Design (Week 1-2)\n2. **Milestone 2**: Core Backend API Layer Services & Data Tables (Week 3)\n3. **Milestone 3**: Dashboard Integration, Custom Rules & Reporting Tools (Week 4)\n4. **Milestone 4**: Final Deployment, Speed Optimization & SEO Audits (Week 5)`
             };
 
-            if (!ai) {
+            if (!getAiActiveKey) {
                 return res.json(defaultOfflineResponse);
             }
 
@@ -892,7 +910,10 @@ To best assist you, let me know which area you would like to explore:
                 const parsed = JSON.parse(resultText.trim());
                 return res.json(parsed);
             } catch (geminiErr: any) {
-                console.info("Gemini database blueprint planner completed.");
+                console.error(
+                    "Gemini database blueprint planner failed:",
+                    geminiErr
+                );
                 return res.json(customFallbackResponse);
             }
         } catch (outerErr: any) {
