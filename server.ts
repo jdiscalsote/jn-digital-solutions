@@ -11,10 +11,12 @@ async function startServer() {
     const app = express();
     const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-    console.log(
-        "Gemini Key Found:",
-        !!process.env.GEMINI_API_KEY
-    );
+    console.log("Gemini Developer Key Present:", !!process.env.GEMINI_API_KEY);
+    console.log("Google Cloud Configuration Details:", {
+        GOOGLE_GENAI_USE_VERTEXAI: process.env.GOOGLE_GENAI_USE_VERTEXAI,
+        GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS ? "Configured" : "Undefined/Missing",
+        GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT || "Undefined",
+    });
 
     const allowedOrigins = [
         "http://localhost:3000",
@@ -24,7 +26,7 @@ async function startServer() {
 
     app.use(cors({
         origin: function (origin, callback) {
-            if (!origin) return callback(null, true); // mobile/postman
+            if (!origin) return callback(null, true);
             if (allowedOrigins.includes(origin)) {
                 return callback(null, true);
             }
@@ -33,60 +35,55 @@ async function startServer() {
         methods: ["GET", "POST", "OPTIONS"],
         allowedHeaders: ["Content-Type"]
     }));
-    app.options("*", cors({
-        origin: allowedOrigins
-    }));
 
+    app.options("*", cors({ origin: allowedOrigins }));
     app.use(express.json());
-
-    // Helper to dynamically check if the Gemini API Key is configured and valid
-    let isApiKeyExpiredOrInvalid = false;
-
-    function getAiActiveKey(): string | undefined {
-        if (isApiKeyExpiredOrInvalid) {
-            return undefined;
-        }
-
-        const key = process.env.GEMINI_API_KEY?.trim();
-        if (!key || key.trim().length < 10) return undefined;
-        return key;
-    }
 
     // Recoverable on-demand client initialization
     let ai: GoogleGenAI | null = null;
 
     function getAiClient(): GoogleGenAI | null {
-        const key = getAiActiveKey();
-        if (!key) return null;
+        if (ai) return ai;
 
-        if (!ai) {
+        const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+        const key = process.env.GEMINI_API_KEY?.trim();
+
+        // Target Path A: Google Cloud Vertex AI Authentication Integration
+        if (projectId && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            ai = new GoogleGenAI({
+                enterprise: true,
+                project: projectId,
+                location: process.env.GOOGLE_CLOUD_LOCATION || "us-central1"
+            });
+            console.log("[AI] Initialized successfully using Vertex AI Service Account Identity Hub!");
+            return ai;
+        }
+
+        // Target Path B: Standard Google AI Studio Developer API Key Fallback
+        if (key && key.length >= 10) {
             ai = new GoogleGenAI({
                 apiKey: key,
                 httpOptions: {
-                    headers: {
-                        "User-Agent": "aistudio-build"
-                    }
+                    headers: { "User-Agent": "aistudio-build" }
                 }
             });
-
-            console.log("[AI] Initialized with API Key");
+            console.log("[AI] Initialized successfully using Developer API Key profile.");
+            return ai;
         }
 
-        return ai;
+        console.log("[AI] Environment Warning: No valid API Key or Google Cloud Project configuration discovered.");
+        return null;
     }
 
-    // Dry run check
-    if (getAiActiveKey()) {
-        getAiClient();
-        console.log(`[AI] Initialized. Key present: ${!!getAiActiveKey()}`);
-    } else {
-        console.log("GEMINI_API_KEY is not defined or is blank, or is a placeholder/invalid token. Utilizing rich local fallback expert assistant.");
+    // Run verification on startup initialization step
+    const activeClientInstance = getAiClient();
+    if (!activeClientInstance) {
+        console.log("AI Core is currently offline. Utilizing rich local fallback expert assistant for client interfaces.");
     }
 
     function getOfflineResponse(message: string): string {
         const query = message.toLowerCase();
 
-        // Founder / NJ / Noly / Background / Developer
         if (
             query.includes("founder") ||
             query.includes("developer") ||
@@ -100,20 +97,9 @@ async function startServer() {
             query.includes("about the owner") ||
             query.includes("about you")
         ) {
-            return `### Meet our Founder & Chief Engineer 👨‍💻
-Our founder, architect, and lead engineer is **JND**, a Senior Full-Stack Software Developer & Systems Analyst with **over 5+ years of professional experience** in digital engineering.
-
-He specializes in building secure, high-concurrency systems and custom corporate architectures.
-
-**Key Career Milestones:**
-*   **Enterprise-Grade Experience**: Engineered critical business platforms for prominent industry giants, including **New San Jose Builders Inc.**, **Accenture**, **Federal Land Inc.**, and **HRD Singapore**.
-*   **Proven Track Record**: Successfully designed and delivered **12+ custom software systems** running in production, ranging from automated bid comparisons to live asset dashboards.
-*   **Expert Solutions**: Oversees every single technical asset delivered under the **JN Digital Solutions** brand to ensure beautiful, robust, and safe execution.
-
-Do you have a project in mind? NJ will personally consult with you to design and build an optimized system for your enterprise!`;
+            return `### Meet our Founder & Chief Engineer 👨‍💻\nOur founder, architect, and lead engineer is **JND**, a Senior Full-Stack Software Developer & Systems Analyst with **over 5+ years of professional experience** in digital engineering.\n\nHe specializes in building secure, high-concurrency systems and custom corporate architectures.\n\n**Key Career Milestones:**\n* **Enterprise-Grade Experience**: Engineered critical business platforms for prominent industry giants, including **New San Jose Builders Inc.**, **Accenture**, **Federal Land Inc.**, and **HRD Singapore**.\n* **Proven Track Record**: Successfully designed and delivered **12+ custom software systems** running in production, ranging from automated bid comparisons to live asset dashboards.\n* **Expert Solutions**: Oversees every single technical asset delivered under the **JN Digital Solutions** brand to ensure beautiful, robust, and safe execution.\n\nDo you have a project in mind? NJ will personally consult with you to design and build an optimized system for your enterprise!`;
         }
 
-        // Web Apps / Enterprise Systems
         if (
             query.includes("web app") ||
             query.includes("enterprise") ||
@@ -127,19 +113,9 @@ Do you have a project in mind? NJ will personally consult with you to design and
             query.includes("erp") ||
             query.includes("software")
         ) {
-            return `### Premium Enterprise Web Applications (SaaS) 📊
-We design and develop custom, highly scalable internal systems to automate your company's processes, eliminate bottlenecks, and secure data storage.
-
-**Some of our specialized platforms include:**
-1.  **Centralized Procurement Suites**: Track inter-departmental budget requests, manage supplier bid matrices, execute structured approval flows, and auto-generate purchase orders.
-2.  **Human Resource Information Systems (HRIS)**: Full personnel profiles, automated tax computations, dynamic leave counters, and automatic payslip distribution.
-3.  **Real-Time Stock & Warehouse Managers**: Live tracking across multiple locations, instant low-inventory warnings, serial tracking, and automated barcode tags.
-4.  **Service Desk & SLA Tickers**: Direct ticket routing, automatic timers, priority flags, and dynamic performance feedback charts.
-
-We utilize a robust stack including **ASP.NET Core**, **React**, and secure **SQL Server** databases to guarantee flawless enterprise performance. Let's build your perfect workflow portal!`;
+            return `### Premium Enterprise Web Applications (SaaS) 📊\nWe design and develop custom, highly scalable internal systems to automate your company's processes, eliminate bottlenecks, and secure data storage.\n\n**Some of our specialized platforms include:**\n1.  **Centralized Procurement Suites**: Track inter-departmental budget requests, manage supplier bid matrices, execute structured approval flows, and auto-generate purchase orders.\n2.  **Human Resource Information Systems (HRIS)**: Full personnel profiles, automated tax computations, dynamic leave counters, and automatic payslip distribution.\n3.  **Real-Time Stock & Warehouse Managers**: Live tracking across multiple locations, instant low-inventory warnings, serial tracking, and automated barcode tags.\n4.  **Service Desk & SLA Tickers**: Direct ticket routing, automatic timers, priority flags, and dynamic performance feedback charts.\n\nWe utilize a robust stack including **ASP.NET Core**, **React**, and secure **SQL Server** databases to guarantee flawless enterprise performance. Let's build your perfect workflow portal!`;
         }
 
-        // Website Development
         if (
             query.includes("website") ||
             query.includes("web design") ||
@@ -148,19 +124,9 @@ We utilize a robust stack including **ASP.NET Core**, **React**, and secure **SQ
             query.includes("storefront") ||
             query.includes("cms")
         ) {
-            return `### High-Converting Websites & E-Commerce Storefronts 🌐
-Get a stunning online presence designed specifically to build credibility, attract organic traffic, and convert visitors into loyal customers.
-
-**Our Core Offerings:**
-*   **Bespoke Landing Pages**: Laser-focused single-screen layouts engineered for high lead extraction and seamless modern user interactions.
-*   **Premium Corporate Websites**: High-impact modern layouts featuring beautiful typography, response metrics, visual maps, and structured service showcases.
-*   **Tailored E-Commerce Systems**: Complete product variations (sizing, color, style), interactive shopping carts, simple checkout triggers, and automated notification receipts.
-*   **Friendly CMS Panels**: Effortlessly update photos, texts, or catalog listings through an intuitive dashboard without touching a single line of software code.
-
-Every website we deploy features premium mobile-responsiveness, high SEO audit scores, and super-fast load speeds.`;
+            return `### High-Converting Websites & E-Commerce Storefronts 🌐\nGet a stunning online presence designed specifically to build credibility, attract organic traffic, and convert visitors into loyal customers.\n\n**Our Core Offerings:**\n* **Bespoke Landing Pages**: Laser-focused single-screen layouts engineered for high lead extraction and seamless modern user interactions.\n* **Premium Corporate Websites**: High-impact modern layouts featuring beautiful typography, response metrics, visual maps, and structured service showcases.\n* **Tailored E-Commerce Systems**: Complete product variations (sizing, color, style), interactive shopping carts, simple checkout triggers, and automated notification receipts.\n* **Friendly CMS Panels**: Effortlessly update photos, texts, or catalog listings through an intuitive dashboard without touching a single line of software code.\n\nEvery website we deploy features premium mobile-responsiveness, high SEO audit scores, and super-fast load speeds.`;
         }
 
-        // Mobile App / Flutter
         if (
             query.includes("mobile") ||
             query.includes("app dev") ||
@@ -169,18 +135,9 @@ Every website we deploy features premium mobile-responsiveness, high SEO audit s
             query.includes("flutter") ||
             query.includes("phone")
         ) {
-            return `### Custom Mobile Application Development 📱
-We build highly optimized mobile applications for both **iOS** and **Android** that operate beautifully both online and offline.
-
-**Key Technical Advantages:**
-*   **Single-Codebase Efficiency**: We use Google's cutting-edge **Flutter** framework. This allows us to deploy to both Apple iOS and Android App stores simultaneously—**saving you up to 50% in development costs** and timelines!
-*   **Offline Data Synchronizers**: Allow your delivery dispatchers or roaming sales agents to log notes or check files even while disconnected. Our engine automatically syncs records once a signal is restored.
-*   **Modern Workflows**: Quick smartphone camera uploads, biometrics (Face ID/Fingerprint), live push notifications, and map tracking integration.
-
-Let's discuss and layout your custom mobile application roadmap!`;
+            return `### Custom Mobile Application Development 📱\nWe build highly optimized mobile applications for both **iOS** and **Android** that operate beautifully both online and offline.\n\n**Key Technical Advantages:**\n* **Single-Codebase Efficiency**: We use Google's cutting-edge **Flutter** framework. This allows us to deploy to both Apple iOS and Android App stores simultaneously—**saving you up to 50% in development costs** and timelines!\n* **Offline Data Synchronizers**: Allow your delivery dispatchers or roaming sales agents to log notes or check files even while disconnected. Our engine automatically syncs records once a signal is restored.\n* **Modern Workflows**: Quick smartphone camera uploads, biometrics (Face ID/Fingerprint), live push notifications, and map tracking integration.\n\nLet's discuss and layout your custom mobile application roadmap!`;
         }
 
-        // POS
         if (
             query.includes("pos") ||
             query.includes("point of sale") ||
@@ -189,19 +146,9 @@ Let's discuss and layout your custom mobile application roadmap!`;
             query.includes("terminal") ||
             query.includes("checkout")
         ) {
-            return `### Automated Cashier & Point of Sale (POS) Systems 🧾
-Optimize your restaurant, checkout lanes, or retail counters with our highly optimized software designed for speed and clarity.
-
-**Standard Capabilities Integrated:**
-*   **High-Speed Checkouts**: Streamlined cashiers' workspace featuring click-to-cart, barcodes, active discount codes, and quick payment inputs.
-*   **Thermal Roll Compatibility**: Standard layout scripts designed to output beautiful, crisp receipts directly to 58mm or 80mm thermal receipt printers.
-*   **Live Store ledger & Inventory**: Automated stock decrements at checkout, low inventory visual markers, and simplified batch stock adjustment panels.
-*   **Sales Insights & Reports**: Interactive telemetry dashboards highlighting best-performing sales agents, hourly transaction rates, and printable CSV/PDF export journals.
-
-We make your physical point of check-out extremely efficient and reliable.`;
+            return `### Automated Cashier & Point of Sale (POS) Systems 🧾\nOptimize your restaurant, checkout lanes, or retail counters with our highly optimized software designed for speed and clarity.\n\n**Standard Capabilities Integrated:**\n* **High-Speed Checkouts**: Streamlined cashiers' workspace featuring click-to-cart, barcodes, active discount codes, and quick payment inputs.\n* **Thermal Roll Compatibility**: Standard layout scripts designed to output beautiful, crisp receipts directly to 58mm or 80mm thermal receipt printers.\n* **Live Store ledger & Inventory**: Automated stock decrements at checkout, low inventory visual markers, and simplified batch stock adjustment panels.\n* **Sales Insights & Reports**: Interactive telemetry dashboards highlighting best-performing sales agents, hourly transaction rates, and printable CSV/PDF export journals.\n\nWe make your physical point of check-out extremely efficient and reliable.`;
         }
 
-        // Printing & Graphics
         if (
             query.includes("print") ||
             query.includes("graphic") ||
@@ -212,19 +159,9 @@ We make your physical point of check-out extremely efficient and reliable.`;
             query.includes("logo") ||
             query.includes("flyer")
         ) {
-            return `### High-Impact Graphic Design & Premium Printing 🎨
-We help elevate your company's physical branding with premium, custom-created print visuals and high-precision physical deliverables.
-
-**Our Core Printing & Creative Range:**
-*   **Tarpaulin Advertisements**: Vibrant, highly weather-resistant vinyl prints designed to attract massive attention during store openings, seasonal promos, or birthday bashes.
-*   **Bespoke Executive Business Cards**: Double-sided premium paper stocks featuring modern layouts, soft-touch laminates, and elegant logos.
-*   **Brochures, Folders & Posters**: Perfectly colored handouts that describe your enterprise values and pricing packages in cohesive brand palettes.
-*   **Total Logo & style Identity Packages**: Establish a gorgeous corporate style guide with professional custom typography, primary color codes, and print assets.
-
-We combine gorgeous vector layouts with high-precision print production to make your physical branding look spectacular.`;
+            return `### High-Impact Graphic Design & Premium Printing 🎨\nWe help elevate your company's physical branding with premium, custom-created print visuals and high-precision physical deliverables.\n\n**Our Core Printing & Creative Range:**\n* **Tarpaulin Advertisements**: Vibrant, highly weather-resistant vinyl prints designed to attract massive attention during store openings, seasonal promos, or birthday bashes.\n* **Bespoke Executive Business Cards**: Double-sided premium paper stocks featuring modern layouts, soft-touch laminates, and elegant logos.\n* **Brochures, Folders & Posters**: Perfectly colored handouts that describe your enterprise values and pricing packages in cohesive brand palettes.\n* **Total Logo & style Identity Packages**: Establish a gorgeous corporate style guide with professional custom typography, primary color codes, and print assets.\n\nWe combine gorgeous vector layouts with high-precision print production to make your physical branding look spectacular.`;
         }
 
-        // Technology Stack / Languages
         if (
             query.includes("tech") ||
             query.includes("stack") ||
@@ -236,18 +173,9 @@ We combine gorgeous vector layouts with high-precision print production to make 
             query.includes(".net") ||
             query.includes("react")
         ) {
-            return `### Enterprise-Grade Engineering & Technology Stack ⚙️
-At **JN Digital Solutions**, we strictly avoid experimental patterns, opting instead to construct systems using battle-tested enterprise technologies:
-
-*   **Backend Application Servers**: **C# / ASP.NET Core** and Node.js. Outperforms other options with stellar multi-threading, security, and enterprise database bindings.
-*   **Dynamic Client Interfaces**: **React / Vite** paired with Tailwind CSS for web apps, and **ASP.NET Blazor (MudBlazor)** for fast, unified dashboard panels.
-*   **High-Performance Mobile Systems**: **Flutter** (Dart) for flawless native performance on both Android and iOS devices.
-*   **Relational Database Engine**: **Microsoft SQL Server**, **PostgreSQL**, and **MySQL**. Configured with strict schema relationships, daily automated backups, and encrypted fields.
-
-Our stack ensures that the applications you purchase today remain fast, structured, and easy to maintain over years of growth.`;
+            return `### Enterprise-Grade Engineering & Technology Stack ⚙️\nAt **JN Digital Solutions**, we strictly avoid experimental patterns, opting instead to construct systems using battle-tested enterprise technologies:\n\n* **Backend Application Servers**: **C# / ASP.NET Core** and Node.js. Outperforms other options with stellar multi-threading, security, and enterprise database bindings.\n* **Dynamic Client Interfaces**: **React / Vite** paired with Tailwind CSS for web apps, and **ASP.NET Blazor (MudBlazor)** for fast, unified dashboard panels.\n* **High-Performance Mobile Systems**: **Flutter** (Dart) for flawless native performance on both Android and iOS devices.\n* **Relational Database Engine**: **Microsoft SQL Server**, **PostgreSQL**, and **MySQL**. Configured with strict schema relationships, daily automated backups, and encrypted fields.\n\nOur stack ensures that the applications you purchase today remain fast, structured, and easy to maintain over years of growth.`;
         }
 
-        // Contact / Quote / Price / Hire / Reach
         if (
             query.includes("quote") ||
             query.includes("price") ||
@@ -262,50 +190,17 @@ Our stack ensures that the applications you purchase today remain fast, structur
             query.includes("map") ||
             query.includes("phone")
         ) {
-            return `### Let's Build Your Digital Future Together! 🚀
-Ready to acquire a high-performance system or premium branding print collaterals? We make booking a simple, friendly process!
-
-**How to Proceed:**
-1.  **Submit our Inquiry Form**: Simply scroll down to the **Contact Section** at the bottom of our web layout. Input your full name, business email, active contact number, and a brief explanation of your custom needs.
-2.  **Locate Our Office**: You can view our map location at the bottom of the landing page, rendering exactly where we are based to plan visits.
-3.  **Inquire Here**: Ask us direct questions in this chat to learn more about your system specifications.
-
-We offer detailed, itemized estimates tailored strictly to your specific budget and technological milestones. Reach out to NJ today and let's get started!`;
+            return `### Let's Build Your Digital Future Together! 🚀\nReady to acquire a high-performance system or premium branding print collaterals? We make booking a simple, friendly process!\n\n**How to Proceed:**\n1.  **Submit our Inquiry Form**: Simply scroll down to the **Contact Section** at the bottom of our web layout. Input your full name, business email, active contact number, and a brief explanation of your custom needs.\n2.  **Locate Our Office**: You can view our map location at the bottom of the landing page, rendering exactly where we are based to plan visits.\n3.  **Inquire Here**: Ask us direct questions in this chat to learn more about your system specifications.\n\nWe offer detailed, itemized estimates tailored strictly to your specific budget and technological milestones. Reach out to NJ today and let's get started!`;
         }
 
-        // General Services Summary
         if (query.includes("service") || query.includes("offer") || query.includes("what do you do") || query.includes("help me")) {
-            return `### Custom Software & Graphic Designs Offered 💼
-At **JN Digital Solutions**, we turn manual business operations into high-efficiency automated digital workflows. Here are our main services:
-
-*   **Website Development** 🌐: Landing pages, speed-optimized corporate profiles, and e-commerce carts with custom administrative controllers.
-*   **Web Applications (SaaS/ERP)** 📊: Custom internal software systems like **centralized Procurement flows**, **HR portals**, and **warehouse calculators**.
-*   **Mobile App Development** 📱: High-fidelity native applications for iOS and Android powered by **Flutter** with full offline storage capabilities.
-*   **POS Terminal Systems** 🧾: Tailored cashier desks with thermal print receipt scripts, inventory ledger tracking, and instant barcoding.
-*   **Graphic Design & High-Def Printing** 🎨: Tarpaulin print layouts, executive business cards, folded flyers, and cohesive style guidelines.
-
-Let us know which service we can outline for you, or scroll to the bottom of the page to submit a project request!`;
+            return `### Custom Software & Graphic Designs Offered 💼\nAt **JN Digital Solutions**, we turn manual business operations into high-efficiency automated digital workflows. Here are our main services:\n\n* **Website Development** 🌐: Landing pages, speed-optimized corporate profiles, and e-commerce carts with custom administrative controllers.\n* **Web Applications (SaaS/ERP)** 📊: Custom internal software systems like **centralized Procurement flows**, **HR portals**, and **warehouse calculators**.\n* **Mobile App Development** 📱: High-fidelity native applications for iOS and Android powered by **Flutter** with full offline storage capabilities.\n* **POS Terminal Systems** 🧾: Tailored cashier desks with thermal print receipt scripts, inventory ledger tracking, and instant barcoding.\n* **Graphic Design & High-Def Printing** 🎨: Tarpaulin print layouts, executive business cards, folded flyers, and cohesive style guidelines.\n\nLet us know which service we can outline for you, or scroll to the bottom of the page to submit a project request!`;
         }
 
-        // General catch-all Response
-        return `### Greetings from JN Digital Solutions! 👋
-Thank you for reaching out to us. I am here to share expert information regarding our digital products and printing.
-
-Your query: *"${message}"*
-
-To best assist you, let me know which area you would like to explore:
-*   **Website Development & Storefronts** 🌐
-*   **Enterprise SaaS web apps (Procurement, HR, Inventory)** 📊
-*   **Mobile App Solutions (Flutter)** 📱
-*   **Point of Sale (POS) cashier systems** 🧾
-*   **High-Quality Printing & Graphics** 🎨
-*   **Founder NJ's full background & tech stack** 👨‍💻
-*   **Requesting a price quotation** 🚀
-
-*Quick Tip*: You can quickly submit details regarding your venture by scrolling down directly to the **Contact Section** at the bottom of this page!`;
+        return `### Greetings from JN Digital Solutions! 👋\nThank you for reaching out to us. I am here to share expert information regarding our digital products and printing.\n\nYour query: *"${message}"*\n\nTo best assist you, let me know which area you would like to explore:\n* **Website Development & Storefronts** 🌐\n* **Enterprise SaaS web apps (Procurement, HR, Inventory)** 📊\n* **Mobile App Solutions (Flutter)** 📱\n* **Point of Sale (POS) cashier systems** 🧾\n* **High-Quality Printing & Graphics** 🎨\n* **Founder NJ's full background & tech stack** 👨‍💻\n* **Requesting a price quotation** 🚀\n\n*Quick Tip*: You can quickly submit details regarding your venture by scrolling down directly to the **Contact Section** at the bottom of this page!`;
     }
 
-    // Wrapper for AI generateContent to handle standard Gemini API vs OAuth access tokens seamlessly
+    // Standardized generation router built safely over unified SDK initialization context
     async function aiGenerateContent(params: {
         model: string;
         contents: any;
@@ -316,97 +211,75 @@ To best assist you, let me know which area you would like to explore:
             responseSchema?: any;
         };
     }) {
-        const activeApiKey = getAiActiveKey();
-
-        if (!activeApiKey) {
-            throw new Error("No active GEMINI_API_KEY found.");
+        const aiClient = getAiClient();
+        if (!aiClient) {
+            throw new Error("No active Gemini API configuration or Google Cloud credentials found.");
         }
 
-        // Ensure AI client exists (SDK mode fallback)
-        if (!ai) {
-            ai = new GoogleGenAI({
-                apiKey: activeApiKey,
-                httpOptions: {
-                    headers: {
-                        "User-Agent": "aistudio-build"
-                    }
+        let formattedContents = params.contents;
+        if (typeof formattedContents === "string") {
+            formattedContents = [
+                {
+                    role: "user",
+                    parts: [{ text: formattedContents }]
                 }
-            });
-        }
-
-        try {
-            // Convert contents into Gemini format if needed
-            let formattedContents = params.contents;
-
-            if (typeof formattedContents === "string") {
-                formattedContents = [
-                    {
-                        role: "user",
-                        parts: [{ text: formattedContents }]
-                    }
-                ];
-            } else if (Array.isArray(formattedContents)) {
-                formattedContents = formattedContents.map((turn: any) => {
-                    if (turn?.parts) return turn;
-
-                    if (turn?.content) {
-                        return {
-                            role: turn.role === "user" ? "user" : "model",
-                            parts: [{ text: turn.content }]
-                        };
-                    }
-
-                    return turn;
-                });
-            }
-
-            // Build request payload
-            const requestBody: any = {
-                contents: formattedContents
-            };
-
-            if (params.config) {
-                requestBody.generationConfig = {
-                    temperature: params.config.temperature,
-                    responseMimeType: params.config.responseMimeType,
-                    responseSchema: params.config.responseSchema
-                };
-
-                if (params.config.systemInstruction) {
-                    requestBody.systemInstruction = {
-                        parts: [{ text: params.config.systemInstruction }]
+            ];
+        } else if (Array.isArray(formattedContents)) {
+            formattedContents = formattedContents.map((turn: any) => {
+                if (turn?.parts) return turn;
+                if (turn?.content) {
+                    return {
+                        role: turn.role === "user" ? "user" : "model",
+                        parts: [{ text: turn.content }]
                     };
                 }
-            }
-
-            // Use correct SDK call (NO manual OAuth handling, NO AQ logic)
-            const result = await ai.models.generateContent({
-                model: params.model,
-                contents: formattedContents,
-                config: requestBody.generationConfig
-                    ? {
-                        temperature: requestBody.generationConfig.temperature,
-                        responseMimeType: requestBody.generationConfig.responseMimeType,
-                        responseSchema: requestBody.generationConfig.responseSchema,
-                        systemInstruction: params.config?.systemInstruction
-                    }
-                    : undefined
+                return turn;
             });
-
-            return result;
-
-        } catch (err: any) {
-            console.error("❌ Gemini API Error:");
-            console.error("Message:", err?.message);
-            console.error("Status:", err?.status);
-            console.error("Full Error:", err);
-
-            // Do NOT silently hide real errors anymore
-            throw err;
         }
+
+        // Auto-repoints internal outdated placeholder names cleanly to valid ones
+        const targetedModel = params.model.includes("gemini-3.5") ? "gemini-2.5-flash" : params.model;
+
+        const response = await aiClient.models.generateContent({
+            model: targetedModel,
+            contents: formattedContents,
+            config: params.config ? {
+                temperature: params.config.temperature,
+                responseMimeType: params.config.responseMimeType,
+                responseSchema: params.config.responseSchema,
+                systemInstruction: params.config.systemInstruction
+            } : undefined
+        });
+
+        return response;
     }
 
-    // API Route for AI Project Estimate & Architecture Recommendation
+    // 1. Text Sandbox Route
+    app.post("/api/generate", async (req, res) => {
+        try {
+            const { prompt } = req.body;
+            if (!prompt) {
+                return res.status(400).json({ error: "Prompt is required in the request body." });
+            }
+
+            const aiClient = getAiClient();
+            if (!aiClient) {
+                return res.status(500).json({ error: "Gemini client failed to initialize. Check engine configs." });
+            }
+
+            const response = await aiClient.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+            });
+
+            return res.json({ text: response.text });
+        } catch (error: any) {
+            console.error("Error calling Gemini API:", error);
+            return res.status(500).json({ error: error.message || "An error occurred while generating content." });
+        }
+    });
+
+    // 2. Project Estimate Endpoint Route
     app.post("/api/estimate", async (req, res) => {
         try {
             const { description, serviceType } = req.body;
@@ -428,23 +301,17 @@ To best assist you, let me know which area you would like to explore:
                 technicalSpecsDraft: `### Technical Specification Proposal\n\n**Prepared for**: Valued Client  \n**Recommended Engine Architecture**: ASP.NET Core & React (Vite)  \n**Description Analyzed**: "${description}"  \n\n#### Suggested Milestones:\n1. **Milestone 1**: UI/UX Wireframes & Database Schema Design (Week 1-2)\n2. **Milestone 2**: Core Backend API Layer Services & Data Tables (Week 3)\n3. **Milestone 3**: Dashboard Integration, Custom Rules & Reporting Tools (Week 4)\n4. **Milestone 4**: Final Deployment, Speed Optimization & SEO Audits (Week 5)`
             };
 
-            if (!getAiActiveKey) {
+            if (!getAiClient()) {
                 return res.json(defaultOfflineResponse);
             }
 
-            const systemInstruction = `You are the Expert Technical Architect & Lead Estimator of JN Digital Solutions. Your job is to analyze client project descriptions and provide an accurate development timeline, cost range (in PHP currency), recommended modern tech stack, a bulleted list of 5 key module scopes, and a formatted markdown Technical Specification Draft.
+            const systemInstruction = `You are the Expert Technical Architect & Lead Estimator of JN Digital Solutions. Your job is to analyze client project descriptions and provide an accurate development timeline, cost range (in PHP currency), recommended modern tech stack, a bulleted list of 5 key module scopes, and a formatted markdown Technical Specification Draft. Return response strictly in JSON format.`;
 
-            Return your response strictly in JSON format as defined by the given structure. Ensure the Markdown specs look incredibly professional and tailored directly to their input notes. Use standard PHP (Philippine Pesos) rate estimates. Let estimates be reasonable (e.g. Simple Landing Page: ₱15k-25k, Web Portal/SaaS: ₱45k-95k, Custom POS: ₱35k-75k).`;
-
-            const prompt = `Analyze this project:
-            Service Type: ${serviceType || "Custom System / Web Suite"}
-            Project Description: "${description}"
-
-            Generate estimate details. Make the technicalSpecsDraft a detailed, elegant Markdown spec sheet.`;
+            const prompt = `Analyze this project:\nService Type: ${serviceType || "Custom System / Web Suite"}\nProject Description: "${description}"`;
 
             try {
                 const response = await aiGenerateContent({
-                    model: "gemini-3.5-flash",
+                    model: "gemini-2.5-flash",
                     contents: prompt,
                     config: {
                         systemInstruction,
@@ -453,70 +320,56 @@ To best assist you, let me know which area you would like to explore:
                         responseSchema: {
                             type: Type.OBJECT,
                             properties: {
-                                estimatedWeeks: { type: Type.INTEGER, description: "Estimated completion time in weeks" },
-                                estimatedPriceRange: { type: Type.STRING, description: "Estimated budget range, e.g. '₱45,000 - ₱65,000 PHP'" },
-                                suggestedStack: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Recommended languages/frameworks" },
-                                scopeBreakdown: { type: Type.ARRAY, items: { type: Type.STRING }, description: "5 key functional scopes to integrate" },
-                                technicalSpecsDraft: { type: Type.STRING, description: "Detailed Markdown specification document" }
+                                estimatedWeeks: { type: Type.INTEGER },
+                                estimatedPriceRange: { type: Type.STRING },
+                                suggestedStack: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                scopeBreakdown: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                technicalSpecsDraft: { type: Type.STRING }
                             },
                             required: ["estimatedWeeks", "estimatedPriceRange", "suggestedStack", "scopeBreakdown", "technicalSpecsDraft"]
                         }
                     }
                 });
 
-                const resultText = response.text || "";
-                const parsed = JSON.parse(resultText.trim());
-                return res.json(parsed);
-            } catch (geminiErr: any) {
-                console.info("Gemini lookup completed.");
+                return res.json(JSON.parse((response.text || "").trim()));
+            } catch (geminiErr) {
                 return res.json(defaultOfflineResponse);
             }
         } catch (outerErr: any) {
-            console.error("error in /api/estimate", outerErr);
             return res.status(500).json({ error: outerErr.message || "Failed to analyze estimate parameters." });
         }
     });
 
-    // API Route for AI Brand Planner, slogans & colors
+    // 3. Brand Strategy Design Route
     app.post("/api/brand-planner", async (req, res) => {
         try {
             const { description, industry } = req.body;
             if (!description) {
-                return res.status(400).json({ error: "Brand context or concept description is required." });
+                return res.status(400).json({ error: "Brand context description is required." });
             }
 
             const defaultOfflineResponse = {
-                slogans: [
-                    "Crafted to Perfection",
-                    "Next-Gen Digital Elevation",
-                    "The Future of Seamless Growth",
-                    "Simplicity Meets Power"
-                ],
+                slogans: ["Crafted to Perfection", "Next-Gen Digital Elevation", "The Future of Seamless Growth", "Simplicity Meets Power"],
                 brandColors: [
                     { name: "Cosmic Midnight", hex: "#0F172A", tailwindClass: "bg-slate-900 text-white" },
                     { name: "SaaS Electric Blue", hex: "#3B82F6", tailwindClass: "bg-indigo-600 text-white" },
                     { name: "Cyber Accent Teal", hex: "#14B8A6", tailwindClass: "bg-teal-500 text-slate-950" },
-                    { name: "Soft Linen Light", hex: "#F8FAFC", tailwindClass: "bg-slate-105 text-slate-800" }
+                    { name: "Soft Linen Light", hex: "#F8FAFC", tailwindClass: "bg-slate-100 text-slate-800" }
                 ],
-                googleFontPairing: "Space Grotesk (Headers) + Inter (Body)",
-                vibeDescription: "A powerful, innovative digital aesthetic leveraging high-contrast corporate blues, crisp slate greys, and bold, tech-forward geometric typography pairings."
+                googleFontPairing: "Space Grotesk + Inter",
+                vibeDescription: "A powerful, innovative digital aesthetic leveraging high-contrast corporate blues and tech-forward typographic pairings."
             };
 
-            if (!getAiActiveKey()) {
+            if (!getAiClient()) {
                 return res.json(defaultOfflineResponse);
             }
 
-            const systemInstruction = `You are the Lead Creative Director & Graphic Brand Architect at JN Digital Solutions. Your job is to generate beautiful, professional branding packages containing creative slogans, tailored brand color palettes with hex codes and suitable tailwind styles, recommended modern Google Fonts combinations, and a rich, expert aesthetic vibe statement.
-
-            Return your response strictly in the specified JSON schema format. Colors should be curated to look premium, modern, cohesive, and have great visual contrast. Avoid standard red/blue/green defaults; suggest refined slate, warm ivory, soft teal, rich amber, and indigo variations.`;
-
-            const prompt = `Generate branding options for:
-            Industry Sector: ${industry || "Digital Service/Retail"}
-            Idea context: "${description}"`;
+            const systemInstruction = `You are the Lead Creative Director & Graphic Brand Architect at JN Digital Solutions. Your job is to generate beautiful, professional branding packages containing creative slogans, tailored brand color palettes with hex codes, recommended Google Fonts combinations, and an aesthetic statement statement. Return your response strictly in the specified JSON schema format.`;
+            const prompt = `Generate branding options for:\nIndustry Sector: ${industry || "Digital Service/Retail"}\nIdea context: "${description}"`;
 
             try {
                 const response = await aiGenerateContent({
-                    model: "gemini-3.5-flash",
+                    model: "gemini-2.5-flash",
                     contents: prompt,
                     config: {
                         systemInstruction,
@@ -525,333 +378,72 @@ To best assist you, let me know which area you would like to explore:
                         responseSchema: {
                             type: Type.OBJECT,
                             properties: {
-                                slogans: { type: Type.ARRAY, items: { type: Type.STRING }, description: "4 custom unique branding slogans/taglines" },
+                                slogans: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 brandColors: {
                                     type: Type.ARRAY,
                                     items: {
                                         type: Type.OBJECT,
                                         properties: {
-                                            name: { type: Type.STRING, description: "Descriptive name, e.g. 'Volcanic Carbon'" },
-                                            hex: { type: Type.STRING, description: "Hexadecimal color code with #" },
-                                            tailwindClass: { type: Type.STRING, description: "Equivalent standard Tailwind color class, e.g. 'bg-slate-900 text-white'" }
+                                            name: { type: Type.STRING },
+                                            hex: { type: Type.STRING },
+                                            tailwindClass: { type: Type.STRING }
                                         },
                                         required: ["name", "hex", "tailwindClass"]
-                                    },
-                                    description: "4 highly coordinated brand colors"
+                                    }
                                 },
-                                googleFontPairing: { type: Type.STRING, description: "Exact matching Google Font combination (Header + Body)" },
-                                vibeDescription: { type: Type.STRING, description: "A summary explaining the design logic, character, and visual energy of this brand identity" }
+                                googleFontPairing: { type: Type.STRING },
+                                vibeDescription: { type: Type.STRING }
                             },
                             required: ["slogans", "brandColors", "googleFontPairing", "vibeDescription"]
                         }
                     }
                 });
 
-                const resultText = response.text || "";
-                const parsed = JSON.parse(resultText.trim());
-                return res.json(parsed);
-            } catch (geminiErr: any) {
-                console.info("Gemini branding lookup completed.");
+                return res.json(JSON.parse((response.text || "").trim()));
+            } catch (geminiErr) {
                 return res.json(defaultOfflineResponse);
             }
         } catch (outerErr: any) {
-            console.error("error in /api/brand-planner", outerErr);
             return res.status(500).json({ error: outerErr.message || "Failed to plan brand combinations." });
         }
     });
 
-    // API Route for AI DB Schema Architect / Entity Relationship Planner
+    // 4. DB Architectural Blueprint Route
     app.post("/api/db-schema", async (req, res) => {
         try {
             const { description, dbType } = req.body;
             if (!description) {
-                return res.status(400).json({ error: "System explanation or database context is required." });
+                return res.status(400).json({ error: "System explanation parameters are required." });
             }
 
             const targetDB = dbType || "Microsoft SQL Server";
-
             const defaultOfflineResponse = {
                 tables: [
                     {
                         name: "Users",
                         description: "Main registry for system authentication parameters and user status.",
                         columns: [
-                            { name: "UserID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Unique surrogate index representing each employee or client." },
+                            { name: "UserID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Unique surrogate index representing each worker profile." },
                             { name: "Email", type: "VARCHAR(150)", constraints: "UNIQUE, NOT NULL", description: "Email used for logging into active portals." },
-                            { name: "PasswordHash", type: "VARCHAR(256)", constraints: "NOT NULL", description: "Salted security hash of password." },
-                            { name: "CreatedAt", type: targetDB.includes("SQL Server") ? "DATETIME" : "TIMESTAMP", constraints: targetDB.includes("SQL Server") ? "DEFAULT GETDATE()" : "DEFAULT CURRENT_TIMESTAMP", description: "System timestamp record creation." }
-                        ]
-                    },
-                    {
-                        name: "AuditLogs",
-                        description: "Persistent ledger tracking all sensitive system modifications.",
-                        columns: [
-                            { name: "LogID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Unique catalog number for tracing events." },
-                            { name: "UserID", type: "INT", constraints: "FOREIGN KEY, NOT NULL", description: "The actor who triggered this specific command." },
-                            { name: "ActionDesc", type: "VARCHAR(500)", constraints: "NOT NULL", description: "Contextual narrative of modification details." },
-                            { name: "IPAddress", type: "VARCHAR(45)", constraints: "NOT NULL", description: "Network IP from which request originated." }
+                            { name: "PasswordHash", type: "VARCHAR(256)", constraints: "NOT NULL", description: "Salted security hash of password records." }
                         ]
                     }
                 ],
-                relationships: [
-                    {
-                        fromTable: "AuditLogs",
-                        fromColumn: "UserID",
-                        toTable: "Users",
-                        toColumn: "UserID",
-                        type: "Many-to-One"
-                    }
-                ],
-                sqlScript: `-- SQL ANSI SCHEMA PROPOSAL (${targetDB}) --\n-- Designed by JN Digital Solutions AI Architect --\n\nCREATE TABLE Users (\n    UserID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    Email VARCHAR(150) UNIQUE NOT NULL,\n    PasswordHash VARCHAR(256) NOT NULL,\n    CreatedAt ${targetDB.includes("SQL Server") ? "DATETIME DEFAULT GETDATE()" : "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"}\n);\n\nCREATE TABLE AuditLogs (\n    LogID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    UserID INT NOT NULL,\n    ActionDesc VARCHAR(500) NOT NULL,\n    IPAddress VARCHAR(45) NOT NULL,\n    FOREIGN KEY (UserID) REFERENCES Users(UserID)\n);\n\nCREATE INDEX IX_AuditLogs_UserID ON AuditLogs(UserID);\n`,
-                architecturalExplanation: `### Database Architecture Concept\n- **Database Normalization**: Structured into 3rd Normal Form (3NF) to guarantee zero transaction redundancy.\n- **Foreign Key Enforcement**: Ensures database relational cascading integrity across audits.\n- **Performance Indexing**: Configured with explicit secondary Indexes on frequent search bounds to keep dashboard loads extremely fast.`
+                relationships: [],
+                sqlScript: `CREATE TABLE Users (\n    UserID INT IDENTITY(1,1) PRIMARY KEY,\n    Email VARCHAR(150) UNIQUE NOT NULL,\n    PasswordHash VARCHAR(256) NOT NULL\n);`,
+                architecturalExplanation: `### Database Architecture Concept\n- **Normalization Bounds**: Structured explicitly into 3rd Normal Form bounds to defend relational logic.`
             };
 
-            let customFallbackResponse = { ...defaultOfflineResponse };
-            const descLower = description.toLowerCase();
-
-            // Advanced Fallback Schema Selection
-            if (descLower.includes("ticket") || descLower.includes("workflow") || descLower.includes("support") || descLower.includes("help") || descLower.includes("issue") || descLower.includes("task") || descLower.includes("bug") || descLower.includes("approval")) {
-                customFallbackResponse = {
-                    tables: [
-                        {
-                            name: "Users",
-                            description: "Registry of active enterprise operators, service technicians, and system actors.",
-                            columns: [
-                                { name: "UserID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Unique catalog serial ID." },
-                                { name: "FullName", type: "VARCHAR(150)", constraints: "NOT NULL", description: "Legal name of the corporate worker." },
-                                { name: "Email", type: "VARCHAR(150)", constraints: "UNIQUE, NOT NULL", description: "Corporate SSO or gateway login username." },
-                                { name: "UserRole", type: "VARCHAR(50)", constraints: "NOT NULL", description: "Permission tier ('Administrator', 'Agent', 'Supervisor', 'Client')." }
-                            ]
-                        },
-                        {
-                            name: "Tickets",
-                            description: "Primary database table log representing issue events, work orders, and service requests.",
-                            columns: [
-                                { name: "TicketID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Unique ticket identifier sequence." },
-                                { name: "Subject", type: "VARCHAR(250)", constraints: "NOT NULL", description: "Title indicating core scope of service ticket." },
-                                { name: "Description", type: targetDB.includes("SQL Server") ? "NVARCHAR(MAX)" : "TEXT", constraints: "NOT NULL", description: "Exhaustive description of technical issue." },
-                                { name: "Priority", type: "VARCHAR(30)", constraints: "DEFAULT 'Medium' NOT NULL", description: "Priority classification ('Low', 'Medium', 'High', 'Critical')." },
-                                { name: "Status", type: "VARCHAR(50)", constraints: "DEFAULT 'Open' NOT NULL", description: "State machine node ('Open', 'Assigned', 'Pending Approval', 'Resolved', 'Closed')." },
-                                { name: "CreatedByUserID", type: "INT", constraints: "FOREIGN KEY, NOT NULL", description: "The support-seeking client (FK, referencing Users)." },
-                                { name: "AssignedToUserID", type: "INT", constraints: "FOREIGN KEY, NULL", description: "The technician or developer assigned to resolve the item (FK, referencing Users)." }
-                            ]
-                        },
-                        {
-                            name: "WorkflowHistory",
-                            description: "Audit ledger recording every single transition step, comment, state modification, and agent assigned work log.",
-                            columns: [
-                                { name: "LogID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Individual node change ID." },
-                                { name: "TicketID", type: "INT", constraints: "FOREIGN KEY, NOT NULL", description: "Related support ticket index key (FK, referencing Tickets)." },
-                                { name: "FromState", type: "VARCHAR(50)", constraints: "NOT NULL", description: "Origin lifecycle status before shift." },
-                                { name: "ToState", type: "VARCHAR(50)", constraints: "NOT NULL", description: "Target lifecycle status resolved." },
-                                { name: "TriggeredByUserID", type: "INT", constraints: "FOREIGN KEY, NOT NULL", description: "The actor who authenticated and finalized this workflow transition step (FK, referencing Users)." },
-                                { name: "LogTime", type: targetDB.includes("SQL Server") ? "DATETIME" : "TIMESTAMP", constraints: targetDB.includes("SQL Server") ? "DEFAULT GETDATE()" : "DEFAULT CURRENT_TIMESTAMP", description: "Audit trace log epoch." }
-                            ]
-                        }
-                    ],
-                    relationships: [
-                        {
-                            fromTable: "Tickets",
-                            fromColumn: "CreatedByUserID",
-                            toTable: "Users",
-                            toColumn: "UserID",
-                            type: "Many-to-One"
-                        },
-                        {
-                            fromTable: "Tickets",
-                            fromColumn: "AssignedToUserID",
-                            toTable: "Users",
-                            toColumn: "UserID",
-                            type: "Many-to-One"
-                        },
-                        {
-                            fromTable: "WorkflowHistory",
-                            fromColumn: "TicketID",
-                            toTable: "Tickets",
-                            toColumn: "TicketID",
-                            type: "Many-to-One"
-                        },
-                        {
-                            fromTable: "WorkflowHistory",
-                            fromColumn: "TriggeredByUserID",
-                            toTable: "Users",
-                            toColumn: "UserID",
-                            type: "Many-to-One"
-                        }
-                    ],
-                    sqlScript: `-- SQL SCHEMA FOR WORKFLOW WORK TICKETING SYSTEM (${targetDB}) --\n-- Standard Compliance Blueprint: JN Digital Solutions System Analyst --\n\nCREATE TABLE Users (\n    UserID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    FullName VARCHAR(150) NOT NULL,\n    Email VARCHAR(150) UNIQUE NOT NULL,\n    UserRole VARCHAR(50) NOT NULL\n);\n\nCREATE TABLE Tickets (\n    TicketID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    Subject VARCHAR(250) NOT NULL,\n    Description ${targetDB.includes("SQL Server") ? "NVARCHAR(MAX)" : "TEXT"} NOT NULL,\n    Priority VARCHAR(30) NOT NULL DEFAULT 'Medium',\n    Status VARCHAR(50) NOT NULL DEFAULT 'Open',\n    CreatedByUserID INT NOT NULL,\n    AssignedToUserID INT NULL,\n    FOREIGN KEY (CreatedByUserID) REFERENCES Users(UserID),\n    FOREIGN KEY (AssignedToUserID) REFERENCES Users(UserID)\n);\n\nCREATE TABLE WorkflowHistory (\n    LogID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    TicketID INT NOT NULL,\n    FromState VARCHAR(50) NOT NULL,\n    ToState VARCHAR(50) NOT NULL,\n    TriggeredByUserID INT NOT NULL,\n    LogTime ${targetDB.includes("SQL Server") ? "DATETIME DEFAULT GETDATE()" : "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"},\n    FOREIGN KEY (TicketID) REFERENCES Tickets(TicketID),\n    FOREIGN KEY (TriggeredByUserID) REFERENCES Users(UserID)\n);\n\nCREATE INDEX IX_Tickets_Status ON Tickets(Status);\nCREATE INDEX IX_WorkflowHistory_TicketID ON WorkflowHistory(TicketID);\n`,
-                    architecturalExplanation: `### Workflow Ticketing System Database Architecture\n- **State Machine Auditing**: Workflow state changes are audited in real time within a continuous append-only ledger (\`WorkflowHistory\`) to trace operational SLA metrics.\n- **Double Foreign Key Linkage**: Relates both the creator (\`CreatedByUserID\`) and technical solver (\`AssignedToUserID\`) safely against a single directory of \`Users\` to optimize table normalization.\n- **Performance Tuning**: Secondary indexes are placed on \`Tickets.Status\` and \`WorkflowHistory.TicketID\` to maintain high query counts on visual project board feeds.`
-                };
-            } else if (descLower.includes("patient") || descLower.includes("booking") || descLower.includes("clinic") || descLower.includes("doctor") || descLower.includes("dentist")) {
-                customFallbackResponse = {
-                    tables: [
-                        {
-                            name: "Products",
-                            description: "Information matrix regarding items and pricing details.",
-                            columns: [
-                                { name: "ProductID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Unique catalog identification ID." },
-                                { name: "SKU", type: "VARCHAR(50)", constraints: "UNIQUE, NOT NULL", description: "Barcode lookup SKU key identifier." },
-                                { name: "ProductName", type: "VARCHAR(150)", constraints: "NOT NULL", description: "Display name of items." },
-                                { name: "UnitPrice", type: "DECIMAL(18,2)", constraints: "NOT NULL", description: "The base unit monetary rate." }
-                            ]
-                        },
-                        {
-                            name: "InventoryLedger",
-                            description: "A continuous table tracking inventory movements (additions/sales/transfers).",
-                            columns: [
-                                { name: "LogID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Surrogate record sequence ID." },
-                                { name: "ProductID", type: "INT", constraints: "FOREIGN KEY, NOT NULL", description: "The related product index node." },
-                                { name: "Quantity", type: "INT", constraints: "NOT NULL", description: "The net quantity modification (+ or - stock counts)." },
-                                { name: "LogTime", type: targetDB.includes("SQL Server") ? "DATETIME" : "TIMESTAMP", constraints: targetDB.includes("SQL Server") ? "DEFAULT GETDATE()" : "DEFAULT CURRENT_TIMESTAMP", description: "Stock change transaction timestamp." }
-                            ]
-                        }
-                    ],
-                    relationships: [
-                        {
-                            fromTable: "InventoryLedger",
-                            fromColumn: "ProductID",
-                            toTable: "Products",
-                            toColumn: "ProductID",
-                            type: "Many-to-One"
-                        }
-                    ],
-                    sqlScript: `-- SQL SCHEMA FOR INVENTORY TRACKING (${targetDB}) --\n\nCREATE TABLE Products (\n    ProductID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    SKU VARCHAR(50) UNIQUE NOT NULL,\n    ProductName VARCHAR(150) NOT NULL,\n    UnitPrice DECIMAL(18,2) NOT NULL\n);\n\nCREATE TABLE InventoryLedger (\n    LogID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    ProductID INT NOT NULL,\n    Quantity INT NOT NULL,\n    LogTime ${targetDB.includes("SQL Server") ? "DATETIME DEFAULT GETDATE()" : "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"},\n    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)\n);\n\nCREATE INDEX IX_Products_SKU ON Products(SKU);\n`,
-                    architecturalExplanation: `### Warehouse Database Architecture Plan\n- **Inventory Synchronization**: Implements stock change triggers using safe, single-source of truth tables.\n- **Transaction Safety**: Configured indexed SKU column keys to support microsecond barcode scan operations.\n- **Normalization Bounds**: Fully separated base product descriptors from daily ledger rows to prevent tables locks.`
-                };
-            } else if (descLower.includes("school") || descLower.includes("student") || descLower.includes("course") || descLower.includes("class") || descLower.includes("enroll")) {
-                customFallbackResponse = {
-                    tables: [
-                        {
-                            name: "Students",
-                            description: "Registry containing enrollment details and contact channels for class enrollees.",
-                            columns: [
-                                { name: "StudentID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Unique catalog serial ID." },
-                                { name: "FirstName", type: "VARCHAR(100)", constraints: "NOT NULL", description: "Student's legal given name." },
-                                { name: "LastName", type: "VARCHAR(100)", constraints: "NOT NULL", description: "Student's family surname name." },
-                                { name: "EnrollmentDate", type: targetDB.includes("SQL Server") ? "DATETIME" : "TIMESTAMP", constraints: targetDB.includes("SQL Server") ? "DEFAULT GETDATE()" : "DEFAULT CURRENT_TIMESTAMP", description: "When student first enrolled." }
-                            ]
-                        },
-                        {
-                            name: "Courses",
-                            description: "Master catalogs of courses, syllabus elements, and credit benchmarks.",
-                            columns: [
-                                { name: "CourseID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Unique identifying digit index node." },
-                                { name: "CourseCode", type: "VARCHAR(20)", constraints: "UNIQUE, NOT NULL", description: "The official academic code sequence (e.g. CS-101)." },
-                                { name: "CourseName", type: "VARCHAR(150)", constraints: "NOT NULL", description: "Human friendly course name description." },
-                                { name: "Credits", type: "INT", constraints: "NOT NULL", description: "The weight scale metric credits count value." }
-                            ]
-                        },
-                        {
-                            name: "Enrollments",
-                            description: "Many-to-Many junction table log logging which academic students attend which classes.",
-                            columns: [
-                                { name: "EnrollmentID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Unique surrogate transition log ID." },
-                                { name: "StudentID", type: "INT", constraints: "FOREIGN KEY, NOT NULL", description: "Reference pointing directly back to enrolee (FK referencing Students)." },
-                                { name: "CourseID", type: "INT", constraints: "FOREIGN KEY, NOT NULL", description: "Related index database node (FK referencing Courses)." },
-                                { name: "Grade", type: "VARCHAR(5)", constraints: "NULL", description: "Final grade record score evaluation string." }
-                            ]
-                        }
-                    ],
-                    relationships: [
-                        {
-                            fromTable: "Enrollments",
-                            fromColumn: "StudentID",
-                            toTable: "Students",
-                            toColumn: "StudentID",
-                            type: "Many-to-One"
-                        },
-                        {
-                            fromTable: "Enrollments",
-                            fromColumn: "CourseID",
-                            toTable: "Courses",
-                            toColumn: "CourseID",
-                            type: "Many-to-One"
-                        }
-                    ],
-                    sqlScript: `-- SQL SCHEMA FOR ACADEMIC ENROLLMENTS SYSTEM (${targetDB}) --\n\nCREATE TABLE Students (\n    StudentID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    FirstName VARCHAR(100) NOT NULL,\n    LastName VARCHAR(100) NOT NULL,\n    EnrollmentDate ${targetDB.includes("SQL Server") ? "DATETIME DEFAULT GETDATE()" : "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"}\n);\n\nCREATE TABLE Courses (\n    CourseID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    CourseCode VARCHAR(20) UNIQUE NOT NULL,\n    CourseName VARCHAR(150) NOT NULL,\n    Credits INT NOT NULL\n);\n\nCREATE TABLE Enrollments (\n    EnrollmentID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    StudentID INT NOT NULL,\n    CourseID INT NOT NULL,\n    Grade VARCHAR(5) NULL,\n    FOREIGN KEY (StudentID) REFERENCES Students(StudentID),\n    FOREIGN KEY (CourseID) REFERENCES Courses(CourseID)\n);\n\nCREATE INDEX IX_Enrollments_Student ON Enrollments(StudentID);\n`,
-                    architecturalExplanation: `### Academic Schema & Course Enrollment Database Plan\n- **Junction Entity Normalization**: Implemented standard many-to-many lookup structure (\`Enrollments\`) mapping students to classes cleanly.\n- **Performance Tuning**: Secondary index is setup on \`Enrollments.StudentID\` to ensure transcript renders instantaneously.`
-                };
-
-            } else {
-                // Highly versatile Entity-Transaction fallback based dynamically on user keyword extraction
-                const descText = String(description || "");
-                const fillers = new Set(["system", "database", "platform", "solution", "and", "the", "for", "with", "from", "into", "meta", "data", "management"]);
-                const terms: string[] = descText
-                    .replace(/[^a-zA-Z]/g, " ")
-                    .split(/\s+/)
-                    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase().trim())
-                    .filter((w: string) => w.length > 3 && !fillers.has(w.toLowerCase()));
-
-                const uniqueTerms: string[] = Array.from(new Set(terms)) as string[];
-                const table1: string = uniqueTerms[0] || "EntityRecords";
-                const table2: string = uniqueTerms[1] || "Transactions";
-
-                customFallbackResponse = {
-                    tables: [
-                        {
-                            name: "Users",
-                            description: "Universal security directory recording authorized system operators.",
-                            columns: [
-                                { name: "UserID", type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: "Surrogate auto-increment record index." },
-                                { name: "Email", type: "VARCHAR(150)", constraints: "UNIQUE, NOT NULL", description: "Email address logging key credential." },
-                                { name: "FullName", type: "VARCHAR(150)", constraints: "NOT NULL", description: "Worker legal full identity name." }
-                            ]
-                        },
-                        {
-                            name: table1,
-                            description: `Data asset records pertaining directly to ${table1.toLowerCase()} core listings.`,
-                            columns: [
-                                { name: `${table1}ID`, type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: `Unique surrogate catalog key identifier for ${table1.toLowerCase()}.` },
-                                { name: "RecordName", type: "VARCHAR(200)", constraints: "NOT NULL", description: "Primary visual descriptor name." },
-                                { name: "RecordedByUserID", type: "INT", constraints: "FOREIGN KEY, NOT NULL", description: "The administrative operator who keyed the record index node." }
-                            ]
-                        },
-                        {
-                            name: table2,
-                            description: `Auxiliary ledger table representing ${table2.toLowerCase()} transactions and event logging.`,
-                            columns: [
-                                { name: `${table2}ID`, type: targetDB.includes("SQL Server") ? "INT IDENTITY(1,1)" : "SERIAL", constraints: "PRIMARY KEY, NOT NULL", description: `Unique catalog digit identifying each ${table2.toLowerCase()} event.` },
-                                { name: `${table1}ID`, type: "INT", constraints: "FOREIGN KEY, NOT NULL", description: `Relates back to the parent ${table1.toLowerCase()} object.` },
-                                { name: "LoggedTime", type: targetDB.includes("SQL Server") ? "DATETIME" : "TIMESTAMP", constraints: targetDB.includes("SQL Server") ? "DEFAULT GETDATE()" : "DEFAULT CURRENT_TIMESTAMP", description: "Timestamp indicating transactional record generation." }
-                            ]
-                        }
-                    ],
-                    relationships: [
-                        {
-                            fromTable: table1,
-                            fromColumn: "RecordedByUserID",
-                            toTable: "Users",
-                            toColumn: "UserID",
-                            type: "Many-to-One"
-                        },
-                        {
-                            fromTable: table2,
-                            fromColumn: `${table1}ID`,
-                            toTable: table1,
-                            toColumn: `${table1}ID`,
-                            type: "Many-to-One"
-                        }
-                    ],
-                    sqlScript: `-- SQL ANSI SCHEMA FOR ${table1.toUpperCase()} PIPELINE (${targetDB}) --\n-- Designed dynamically by JN Digital Solutions AI Architect Fallback Engine --\n\nCREATE TABLE Users (\n    UserID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    Email VARCHAR(150) UNIQUE NOT NULL,\n    FullName VARCHAR(150) NOT NULL\n);\n\nCREATE TABLE ${table1} (\n    ${table1}ID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    RecordName VARCHAR(200) NOT NULL,\n    RecordedByUserID INT NOT NULL,\n    FOREIGN KEY (RecordedByUserID) REFERENCES Users(UserID)\n);\n\nCREATE TABLE ${table2} (\n    ${table2}ID ${targetDB.includes("SQL Server") ? "INT IDENTITY(1,1) PRIMARY KEY" : "SERIAL PRIMARY KEY"},\n    ${table1}ID INT NOT NULL,\n    LoggedTime ${targetDB.includes("SQL Server") ? "DATETIME DEFAULT GETDATE()" : "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"},\n    FOREIGN KEY (${table1}ID) REFERENCES ${table1}(${table1}ID)\n);\n\nCREATE INDEX IX_${table1}_Registered ON ${table1}(RecordedByUserID);\nCREATE INDEX IX_${table2}_Parent ON ${table2}(${table1}ID);\n`,
-                    architecturalExplanation: `### System Schema Design Concept\n- **Standard Relational Mapping**: Normalized into separate parent-child transactional schemas linking \`Users\` to \`${table1}\` to prevent logical record duplication.\n- **Enforced Key Cascades**: Configured explicit foreign keys matching database types to protect operational reference bounds.\n- **Performance Indexing**: Configured with secondary Indexes on parent lookup keys to maintain lightning-fast response times.`
-                };
+            if (!getAiClient()) {
+                return res.json(defaultOfflineResponse);
             }
 
-            if (!getAiActiveKey) {
-                return res.json(customFallbackResponse);
-            }
-
-            const systemInstruction = `You are the Lead Database Architect and Master System Analyst at JN Digital Solutions. Your role is to design professional, highly normalized, robust database schemas tailored to user system requirements.
-            You MUST return your response strictly in the requested JSON structure. Color, layout, data structures, and the SQL script should be highly optimized, utilizing indices, primary/foreign key mappings, appropriate schemas, and types for the requested target database system (${targetDB}).`;
-
-            const prompt = `Design a fully normalized database schema for the following requirement:
-            Database Type: ${targetDB}
-            System Description: "${description}"
-            Ensure that the tables, column types, constraints, ER relationships, sqlScript, and design explanation are ultra-professional, and match standard C# / ASP.NET or database best practices.`;
+            const systemInstruction = `You are the Lead Database Architect and Master System Analyst at JN Digital Solutions. Design professional, highly normalized schemas matching database structures for ${targetDB}. Return your response strictly in the requested JSON structure.`;
+            const prompt = `Design a schema for:\nDatabase System: ${targetDB}\nSystem Description: "${description}"`;
 
             try {
                 const response = await aiGenerateContent({
-                    model: "gemini-3.5-flash",
+                    model: "gemini-2.5-flash",
                     contents: prompt,
                     config: {
                         systemInstruction,
@@ -898,96 +490,51 @@ To best assist you, let me know which area you would like to explore:
                                         required: ["fromTable", "fromColumn", "toTable", "toColumn", "type"]
                                     }
                                 },
-                                sqlScript: { type: Type.STRING, description: "Fully complete, formatted SQL script containing CREATE TABLE statements, foreign keys, and indexes for " + targetDB },
-                                architecturalExplanation: { type: Type.STRING, description: "Professional database specification and optimization explanation in Markdown" }
+                                sqlScript: { type: Type.STRING },
+                                architecturalExplanation: { type: Type.STRING }
                             },
                             required: ["tables", "relationships", "sqlScript", "architecturalExplanation"]
                         }
                     }
                 });
 
-                const resultText = response.text || "";
-                const parsed = JSON.parse(resultText.trim());
-                return res.json(parsed);
-            } catch (geminiErr: any) {
-                console.error(
-                    "Gemini database blueprint planner failed:",
-                    geminiErr
-                );
-                return res.json(customFallbackResponse);
+                return res.json(JSON.parse((response.text || "").trim()));
+            } catch (geminiErr) {
+                return res.json(defaultOfflineResponse);
             }
         } catch (outerErr: any) {
-            console.error("error in /api/db-schema", outerErr);
             return res.status(500).json({ error: outerErr.message || "Failed to draft database schema." });
         }
     });
 
-    // API Route for Chatbot
+    // 5. Intelligent Client Conversational Chatbot Route
     app.post("/api/chat", async (req, res) => {
         try {
             const { message, history } = req.body;
-
             if (!message) {
-                return res.status(400).json({ error: "Message is required" });
+                return res.status(400).json({ error: "Message parameter is required" });
             }
 
-            // If the API environment key is unconfigured or null, return our high quality custom helper directly.
-            if (!getAiActiveKey) {
+            if (!getAiClient()) {
                 return res.json({ text: getOfflineResponse(message) });
             }
 
-            // Context prompt to teach the assistant all the details to ensure accurate Q&A
-            const systemInstruction = `You are the official AI Assistant for JN Digital Solutions (founded by NJ/Noly, a top Full-Stack Engineer and System Analyst with 7+ years of experience and over 12 enterprise applications built).
+            const systemInstruction = `You are the official AI Assistant for JN Digital Solutions (founded by NJ, a top Full-Stack Engineer and System Analyst with 5+ years of experience and over 12 enterprise apps built). Welcome clients, answer standard questions about layouts, modules, or pricing items warmly, and act as an elite developer representative. Maintain structured markdown readability.`;
 
-            Your purpose is to welcome clients, answer standard questions about JN Digital Solutions services, and be warm, professional, informative, and precise.
-
-            Here is the exact layout of JN Digital Solutions:
-            1. Website Development:
-            - Built for speed, responsiveness, and SEO.
-            - Types: landing pages, company websites, e-commerce, custom CMS solutions.
-            2. Web Application Development (Enterprise Systems):
-            - Scalable custom internal platforms.
-            - Specializations: Human Resource (HR) Systems, Procurement Systems, ERP Modules, Ticketing & Service Desk Systems, Inventory Systems.
-            3. Mobile Application Development:
-            - High-performance iOS and Android applications via Flutter.
-            - Advanced features like biometric logins and AI capabilities.
-            4. Point of Sale (POS):
-            - Tailored for retail and food service sales counters.
-            - Core Features: Inventory tracking, automatic receipt generation, sales telemetry, and barcode scanning.
-            5. Graphic Design & High-Quality Printing:
-            - High-impact graphic branding elements.
-            - Deliverables: Tarpaulin printing, premium double-sided business cards, flyers, posters, and uniform company styles.
-
-            Founder Background & Technologies:
-            - JND has worked with premier entities like New San Jose Builders Inc., Accenture, Federal Land Inc., and HRD Singapore.
-            - Systems built: Centralized Procurement Platforms with approval chain workflows, Cloud reservation dashboards, AI face shift trackers, Blazor support hubs, etc.
-            - Primary Stack: C# / ASP.NET Core, SQL Server, REST API gateways, Blazor/MudBlazor, Flutter, React, and Tailwind CSS.
-
-            Assistant Persona and tone:
-            - Super warm, professional, highly informative, and representing elite developer execution.
-            - Maintain readable, elegant spacing. Use Markdown bullet spots easily.
-            - Guide users to the contact/quote inquiries area at the bottom of the page for project bookings.
-            - NEVER fabricate service ranges outside these described modules.`;
-
-            // Transform history to contents array for @google/genai generateContent API
             const contentsList: any[] = [];
             if (history && Array.isArray(history)) {
                 for (const turn of history) {
                     contentsList.push({
                         role: turn.role === "user" ? "user" : "model",
-                        parts: [{ text: turn.content }],
+                        parts: [{ text: turn.content || turn.parts?.[0]?.text || "" }],
                     });
                 }
             }
-
-            contentsList.push({
-                role: "user",
-                parts: [{ text: message }],
-            });
+            contentsList.push({ role: "user", parts: [{ text: message }] });
 
             try {
                 const response = await aiGenerateContent({
-                    model: "gemini-3.5-flash",
+                    model: "gemini-2.5-flash",
                     contents: contentsList,
                     config: {
                         systemInstruction,
@@ -995,25 +542,16 @@ To best assist you, let me know which area you would like to explore:
                     },
                 });
 
-                return res.json({ text: response.text || "Hello! How can I represent JN Digital Solutions for you today?" });
-            } catch (geminiErr: any) {
-                console.info("Gemini chat processor completed.");
-                // Fall back gracefully to local expert engine instead of throwing error 500!
+                return res.json({ text: response.text || "Hello! How can I help represent JN Digital Solutions for you today?" });
+            } catch (geminiErr) {
                 return res.json({ text: getOfflineResponse(message) });
             }
         } catch (err: any) {
-            console.error("Express /api/chat error:", err);
-            // Even if outer fails, return fallback rather than raw HTML error page!
-            try {
-                const fallbackText = getOfflineResponse(req.body.message || "");
-                return res.json({ text: fallbackText });
-            } catch {
-                return res.status(500).json({ error: err.message || "Something went wrong during Gemini inference." });
-            }
+            return res.json({ text: getOfflineResponse(req.body.message || "") });
         }
     });
 
-    // Hot module replacement & static routing management
+    // Front-End Static Delivery Engine Pipeline Handles
     if (process.env.NODE_ENV !== "production") {
         const vite = await createViteServer({
             server: { middlewareMode: true },
@@ -1028,8 +566,9 @@ To best assist you, let me know which area you would like to explore:
         });
     }
 
+    // Unified Server Operational Entry Point Listener Bind (BOUND ONCE)
     app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Express server is listening on port ${PORT}`);
+        console.log(`🚀 Express system dashboard executing smoothly on port ${PORT}`);
     });
 }
 
