@@ -100,7 +100,6 @@ export default function AIProjectWizard() {
         setEstLoading(true);
         setEstResult(null);
 
-        // Dynamic step animation for premium AI feedback
         const steps = [
             "Configuring JN Technical Schema...",
             "Analyzing architecture constraints...",
@@ -586,7 +585,7 @@ export default function AIProjectWizard() {
                                             <div
                                                 key={i}
                                                 onClick={() => copyToClipboard(slogan, true)}
-                                                className="p-3 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-xl hover:border-teal-500/40 cursor-copy transition-all group flex items-center justify-between"
+                                                className="p-3 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-xl hover:border-teal-500/40 cursor-copy transition-all group flex items-center justify-between"
                                                 title="Click to copy slogan"
                                             >
                                                 <span className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200 italic">
@@ -616,13 +615,13 @@ export default function AIProjectWizard() {
                                                     style={{ backgroundColor: color.hex }}
                                                     className="h-16 w-full relative flex items-end justify-end p-2"
                                                 >
-                                                    <div className="bg-black/40 backdrop-blur-xs p-1 rounded text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="bg-black/40 backdrop-blur-sm p-1 rounded text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity">
                                                         {colorCopiedCode === color.hex ? "COPIED!" : "COPY"}
                                                     </div>
                                                 </div>
                                                 {/* Info details */}
                                                 <div className="p-2.5 bg-white dark:bg-slate-900 text-left">
-                                                    <span className="text-[10px] font-bold text-slate-850 dark:text-slate-200 block truncate">
+                                                    <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">
                                                         {color.name}
                                                     </span>
                                                     <span className="text-[10px] font-mono text-slate-400 block tracking-wider uppercase mt-0.5">
@@ -652,7 +651,7 @@ export default function AIProjectWizard() {
                                     <span className="text-xs font-bold text-slate-600 dark:text-slate-300 font-mono uppercase block">
                                         Aesthetic Vibe Statement & Brand Character:
                                     </span>
-                                    <p className="text-xs sm:text-sm text-slate-650 dark:text-slate-350 leading-relaxed font-normal p-4 rounded-xl bg-slate-100 dark:bg-slate-900/60 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800">
+                                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-normal p-4 rounded-xl bg-slate-100 dark:bg-slate-900/60 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800">
                                         {brandResult.vibeDescription}
                                     </p>
                                 </div>
@@ -712,7 +711,7 @@ export default function AIProjectWizard() {
                             <button
                                 type="submit"
                                 disabled={dbLoading}
-                                className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-xs sm:text-sm font-semibold tracking-wide bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md cursor-pointer disabled:opacity-75 transition-all animate-none"
+                                className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-xs sm:text-sm font-semibold tracking-wide bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md cursor-pointer disabled:opacity-75 transition-all"
                             >
                                 {dbLoading ? (
                                     <div className="flex items-center space-x-2.5">
@@ -751,7 +750,7 @@ export default function AIProjectWizard() {
                                         {dbResult.tables?.map((table, tIdx) => (
                                             <div
                                                 key={tIdx}
-                                                className="p-4 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-xl space-y-3 shadow-xs h-full flex flex-col justify-between"
+                                                className="p-4 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-xl space-y-3 shadow-sm h-full flex flex-col justify-between"
                                             >
                                                 <div>
                                                     <div className="flex items-center justify-between">
@@ -780,11 +779,11 @@ export default function AIProjectWizard() {
                                                                 </span>
                                                             </div>
                                                             <div className="text-right flex flex-col items-end shrink-0">
-                                                                <span className="font-mono text-[10px] text-violet-600 dark:text-violet-400 bg-violet-500/10 px-1.5 py-1/2 rounded-md">
+                                                                <span className="font-mono text-[10px] text-violet-600 dark:text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded-md">
                                                                     {col.type}
                                                                 </span>
                                                                 {col.constraints && (
-                                                                    <span className="text-[9px] text-auto text-amber-600 dark:text-amber-400 font-mono mt-0.5 uppercase tracking-wide">
+                                                                    <span className="text-[9px] text-amber-600 dark:text-amber-400 font-mono mt-0.5 uppercase tracking-wide">
                                                                         {col.constraints}
                                                                     </span>
                                                                 )}
@@ -803,9 +802,9 @@ export default function AIProjectWizard() {
                                         <span className="text-xs font-bold text-slate-600 dark:text-slate-300 font-mono uppercase block">
                                             Entity-Relationship (PK/FK) Constraints:
                                         </span>
-                                        <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/80 space-y-2">
+                                        <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 space-y-2">
                                             {dbResult.relationships.map((rel, relIdx) => (
-                                                <div key={relIdx} className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-705 dark:text-slate-300">
+                                                <div key={relIdx} className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-700 dark:text-slate-300">
                                                     <span className="text-indigo-600 dark:text-indigo-400 font-bold bg-white dark:bg-slate-900 px-2 py-1.5 rounded border border-slate-200/50 dark:border-slate-800">
                                                         {rel.fromTable}.{rel.fromColumn}
                                                     </span>
@@ -853,7 +852,7 @@ export default function AIProjectWizard() {
                                     <span className="text-xs font-bold text-slate-600 dark:text-slate-300 font-mono uppercase block">
                                         Lead Architect Implementation Commentary:
                                     </span>
-                                    <p className="text-xs sm:text-sm text-slate-650 dark:text-slate-350 leading-relaxed font-normal p-4 rounded-xl bg-slate-100 dark:bg-slate-900/60 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800">
+                                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-normal p-4 rounded-xl bg-slate-100 dark:bg-slate-900/60 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800">
                                         {dbResult.architecturalExplanation}
                                     </p>
                                 </div>
