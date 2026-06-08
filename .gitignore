@@ -1,0 +1,7 @@
+# Local environment secrets
+.env
+gcp-key.json
+
+# Production builds and dependencies
+node_modules/
+dist/
